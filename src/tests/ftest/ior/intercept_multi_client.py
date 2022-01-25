@@ -1,6 +1,6 @@
 #!/usr/bin/python
 """
-  (C) Copyright 2019-2021 Intel Corporation.
+  (C) Copyright 2019-2022 Intel Corporation.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
@@ -8,14 +8,13 @@
 import os
 from ior_test_base import IorTestBase
 from ior_utils import IorCommand, IorMetrics
-import write_host_file
+from general_utils import percent_change
 
 
 class IorInterceptMultiClient(IorTestBase):
     # pylint: disable=too-many-ancestors
-    """Test class Description: Runs IOR with and without interception
-       library on a single server and multi client settings with
-       basic parameters.
+    """Test class Description: Verify IOR performance with DFUSE + IL is similar to DFS
+                               for a single server and multiple client nodes.
 
     :avocado: recursive
     """
@@ -24,52 +23,51 @@ class IorInterceptMultiClient(IorTestBase):
         """Jira ID: DAOS-3499.
 
         Test Description:
-            Purpose of this test is to run ior through dfuse in multiple
-            clients for 5 minutes and capture the metrics and use the
-            intercepiton library by exporting LD_PRELOAD to the libioil.so
-            path and rerun the above ior and capture the metrics and
-            compare the performance difference and check using interception
-            library make significant performance improvement.
+            Verify IOR performance with DFUSE + IL is similar to DFS.
 
         Use case:
-            Run ior with read, write for 5 minutes
-            Run ior with read, write for 5 minutes with interception library
-            Compare the results and check whether using interception
-                library provides better performance.
+            Run IOR write + read with DFS.
+            Run IOR write + read with DFUSE + IL.
+            Verify performance with DFUSE + IL is similar to DFS.
 
-        :avocado: tags=all,full_regression,hw,large
-        :avocado: tags=daosio,iorinterceptmulticlient
+        :avocado: tags=all,full_regression
+        :avocado: tags=hw,large
+        :avocado: tags=daosio,dfuse,il,ior,ior_intercept
+        :avocado: tags=ior_intercept_multi_client
         """
-        suffix = self.ior_cmd.transfer_size.value
-        out = self.run_ior_with_pool(test_file_suffix=suffix)
-        without_intercept = IorCommand.get_ior_metrics(out)
-        intercept = os.path.join(self.prefix, 'lib64', 'libioil.so')
-        suffix = suffix + "intercept"
-        out = self.run_ior_with_pool(intercept, test_file_suffix=suffix)
-        with_intercept = IorCommand.get_ior_metrics(out)
+        # Run IOR with DFS
+        self.ior_cmd.api.update("DFS")
+        dfs_out = self.run_ior_with_pool(fail_on_warning=self.log.info)
+        dfs_perf = IorCommand.get_ior_metrics(dfs_out)
+
+        # Run IOR with dfuse + IL
+        self.ior_cmd.api.update("POSIX")
+        dfuse_out = self.run_ior_with_pool(
+            intercept=os.path.join(self.prefix, 'lib64', 'libioil.so'),
+            fail_on_warning=self.log.info)
+        dfuse_perf = IorCommand.get_ior_metrics(dfuse_out)
+
+        # Index of each metric
         max_mib = int(IorMetrics.Max_MiB)
-        min_mib = int(IorMetrics.Min_MiB)
         mean_mib = int(IorMetrics.Mean_MiB)
 
-        write_x = self.params.get("write_x", "/run/ior/iorflags/ssf/*", 1)
+        # Write and read performance thresholds
+        write_x = self.params.get("write_x", self.ior_cmd.namespace, None)
+        read_x = self.params.get("read_x", self.ior_cmd.namespace, None)
+        if write_x is None or read_x is None:
+            self.fail("Failed to get write_x and read_x from config")
 
-        # Verifying write performance
-        self.assertTrue(float(with_intercept[0][max_mib]) >
-                        write_x * float(without_intercept[0][max_mib]))
-        self.assertTrue(float(with_intercept[0][min_mib]) >
-                        write_x * float(without_intercept[0][min_mib]))
-        self.assertTrue(float(with_intercept[0][mean_mib]) >
-                        write_x * float(without_intercept[0][mean_mib]))
+        # Verify write performance
+        actual_write_x = abs(percent_change(dfs_perf[0][max_mib], dfuse_perf[0][max_mib]))
+        self.log.info("Max Write diff = %s", actual_write_x)
+        self.assertLessEqual(actual_write_x, write_x, "Max Write outside performance threshold")
+        actual_write_x = abs(percent_change(dfs_perf[0][mean_mib], dfuse_perf[0][mean_mib]))
+        self.log.info("Mean Write diff = %s", actual_write_x)
+        self.assertLessEqual(actual_write_x, write_x, "Mean Write outside performance threshold")
 
-        # Verifying read performance
-        # The read performance is almost same with or without intercept
-        # library. But arbitrarily the read performance with interception
-        # library can be bit lower than without it. Verifying that it is
-        # not drastically lower by checking it is at least  60% or above.
-        read_x = 0.6
-        self.assertTrue(float(with_intercept[1][max_mib]) >
-                        read_x * float(without_intercept[1][max_mib]))
-        self.assertTrue(float(with_intercept[1][min_mib]) >
-                        read_x * float(without_intercept[1][min_mib]))
-        self.assertTrue(float(with_intercept[1][mean_mib]) >
-                        read_x * float(without_intercept[1][mean_mib]))
+        actual_read_x = abs(percent_change(dfs_perf[1][max_mib], dfuse_perf[1][max_mib]))
+        self.log.info("Max Read diff = %s", actual_read_x)
+        self.assertLessEqual(actual_read_x, write_x, "Max Read outside performance threshold")
+        actual_read_x = abs(percent_change(dfs_perf[1][mean_mib], dfuse_perf[1][mean_mib]))
+        self.log.info("Mean Read diff = %s", actual_read_x)
+        self.assertLessEqual(actual_read_x, write_x, "Mean Read outside performance threshold")
