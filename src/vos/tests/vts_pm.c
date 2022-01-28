@@ -1220,6 +1220,7 @@ cond_updaten_op_(void **state, daos_handle_t coh, daos_unit_oid_t oid,
 	vts_dtx_begin(&oid, coh, epoch, 0, &dth);
 	rc = vos_obj_update_ex(coh, oid, epoch, 0, flags, &dkey, n, iod, NULL,
 			       sgl, dth);
+	D_DEBUG(DB_TRACE, "obj update %d \n", rc);
 	xid = dth->dth_xid;
 	assert_rc_equal(rc, expected_rc);
 	vts_dtx_end(dth);
@@ -1273,6 +1274,7 @@ cond_test(void **state)
 	cond_update_op(state, arg->ctx.tc_co_hdl, oid, epoch++, "a", "b",
 		       VOS_OF_COND_DKEY_UPDATE,
 		       -DER_NONEXIST, sgl, "foo");
+	D_DEBUG(DB_TRACE, "cond_test=860\n");
 	/** Non conditional update should fail due to later read */
 	cond_update_op(state, arg->ctx.tc_co_hdl, oid, epoch - 3, "a", "b",
 		       0, -DER_TX_RESTART, sgl, "foo");
@@ -1311,6 +1313,7 @@ cond_test(void **state)
 			VOS_OF_COND_DKEY_UPDATE,
 			-DER_NONEXIST, sgl, 5, "a", "foo", "b", "bar", "c",
 			"foobar", "d", "value", "e", "abc");
+	D_DEBUG(DB_TRACE, "cond_test=860\n");
 	cond_updaten_op(state, arg->ctx.tc_co_hdl, oid, epoch - 2, "z",
 			VOS_OF_COND_DKEY_INSERT,
 			-DER_TX_RESTART, sgl, 5, "a", "foo", "b", "bar", "c",
@@ -1325,6 +1328,7 @@ cond_test(void **state)
 	cond_fetch_op(state, arg->ctx.tc_co_hdl, oid, epoch++, true, "a",
 		      "nonexist", VOS_OF_COND_AKEY_FETCH, -DER_NONEXIST,
 		      sgl, "xxx", 'x');
+	D_DEBUG(DB_TRACE, "cond_test=861\n");
 	cond_update_op(state, arg->ctx.tc_co_hdl, oid, epoch - 2, "a",
 		       "nonexist", 0, -DER_TX_RESTART, sgl,
 		       "foo");

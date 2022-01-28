@@ -152,7 +152,8 @@ ktr_hkey_gen(struct btr_instance *tins, d_iov_t *key_iov, void *hkey)
 
 	hkey_common_gen(key_iov, hkey);
 
-	vos_kh_set(kkey->kh_murmur64);
+	if (key_iov->iov_len > KH_INLINE_MAX)
+		vos_kh_set(kkey->kh_murmur64);
 }
 
 /** compare the hashed key */
