@@ -1,6 +1,6 @@
 #!/usr/bin/python
 """
-  (C) Copyright 2020-2021 Intel Corporation.
+  (C) Copyright 2020-2022 Intel Corporation.
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 """
@@ -23,29 +23,6 @@ def uuid_from_obj(obj):
     if hasattr(obj, "uuid"):
         return obj.uuid
     return obj
-
-def format_daos_path(pool=None, cont=None, path=None):
-    """Format a daos path as daos://<pool>/<cont>/<path>.
-
-    Args:
-        pool (TestPool, optional): the source pool or uuid.
-        cont (TestContainer, optional): the source cont or uuid.
-        path (str, optional): cont path relative to the root.
-
-    Returns:
-        str: the formatted path.
-
-    """
-    daos_path = "daos://"
-    if pool:
-        pool_uuid = uuid_from_obj(pool)
-        daos_path += str(pool_uuid) + "/"
-    if cont:
-        cont_uuid = uuid_from_obj(cont)
-        daos_path += str(cont_uuid) + "/"
-    if path:
-        daos_path += str(path).lstrip("/")
-    return daos_path
 
 class MfuCommandBase(ExecutableCommand):
     """Base MpiFileUtils command."""
