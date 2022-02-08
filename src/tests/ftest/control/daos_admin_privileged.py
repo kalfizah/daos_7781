@@ -97,3 +97,17 @@ class DaosAdminPrivTest(TestWithServers):
             self.fail(
                 "##(5)Failed starting server after format as non-root user: "
                 "{}".format(error))
+
+        # Verify that the SCM mountpoint has the appropriate permissions
+        # after the filesystem is mounted.
+        self.log.info("(6)Verifying SCM mountpoint permissions")
+        scm_mount = self.server_managers[0].get_config_value("scm_mount")
+        scm_stats = os.stat(scm_mount)
+
+        # Should be dir, 0700.
+        desired = (stat.S_IFDIR|stat.S_IRWXU)
+        actual = scm_stats.st_mode
+
+        if (actual ^ desired) > 0:
+            self.fail(
+                "##(6)Incorrect {} permissions: {}".format(scm_mount, oct(actual)))
